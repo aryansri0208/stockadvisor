@@ -1,6 +1,6 @@
 # Stock Analysis Application
 
-This project is a web application for analyzing and forecasting stock prices. It uses FastAPI for the backend and Streamlit for the frontend to provide an interactive user interface. The application fetches stock data from Yahoo Finance, calculates various metrics, and provides visualizations and forecasts using Prophet.
+This project is a web application for analyzing and forecasting stock prices. It uses FastAPI for the backend and Streamlit for the frontend to provide an interactive user interface. The application fetches stock data from Yahoo Finance, calculates various metrics, and provides visualizations and forecasts using Prophet and LSTM.
 
 ## Features
 
