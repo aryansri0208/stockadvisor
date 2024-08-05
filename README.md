@@ -165,13 +165,13 @@ This project is a web application for analyzing and forecasting stock prices. It
 
 ## File Structure
 
-stockadvisor/
-├── .venv/ # Virtual environment directory
-├── .gitignore # Git ignore file
-├── README.md # README file
-├── requirements.txt # Python dependencies
-├── main.py # FastAPI backend script
-└── app.py # Streamlit frontend script
+** stockadvisor **
+    - .venv/ # Virtual environment directory
+    - .gitignore # Git ignore file
+    - README.md # README file
+    - requirements.txt # Python dependencies
+    - main.py # FastAPI backend script
+    - app.py # Streamlit frontend script
 
 
 
