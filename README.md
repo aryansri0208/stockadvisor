@@ -8,7 +8,7 @@ This project is a web application for analyzing and forecasting stock prices. It
 - Displays closing prices, volume, moving averages, and daily returns.
 - Provides histograms of daily returns.
 - Generates forecasts using the Prophet model.
-- Calculates and displays the correlation between the two stocks.
+- Calculates and displays the correlation between stocks.
 
 ## Installation
 
