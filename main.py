@@ -8,42 +8,50 @@ app = FastAPI()
 
 @app.get("/analyze_stocks/")
 def analyze_stocks(stock_tickers: str, correlation_tickers: str, start_date: str = Query(...), end_date: str = Query(...)):
-    tickers = stock_tickers.split(',')
-    correlation_tickers = correlation_tickers.split(',') if correlation_tickers else tickers
+    tickers = [t.strip() for t in stock_tickers.split(',')]
+    correlation_tickers = [t.strip() for t in correlation_tickers.split(',')] if correlation_tickers else tickers
     start = datetime.strptime(start_date, '%Y-%m-%d')
     end = datetime.strptime(end_date, '%Y-%m-%d')
 
-    stock_data = {}
-    volume_data = {}
+    stock_data = pd.DataFrame()
+    volume_data = pd.DataFrame()
     forecast_data = {}
-    for ticker in tickers:
-        data = yf.download(ticker, start=start, end=end)
-        if data.empty:
-            raise HTTPException(status_code=404, detail=f"Stock ticker {ticker} not found or no data available")
-        stock_data[ticker] = data['Adj Close']
-        volume_data[ticker] = data['Volume']
-        try:
-            forecast_data[ticker] = prophet_forecast(data)
-        except ValueError as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
-    correlation_data = {}
-    for ticker in correlation_tickers:
-        data = yf.download(ticker, start=start, end=end)
-        if data.empty:
-            raise HTTPException(status_code=404, detail=f"Stock ticker {ticker} not found or no data available")
-        correlation_data[ticker] = data['Adj Close']
-
-    stock_df = pd.DataFrame(stock_data)
-    stock_df.reset_index(inplace=True)
-    volume_df = pd.DataFrame(volume_data)
-    volume_df.reset_index(inplace=True)
     
-    correlation_df = pd.DataFrame(correlation_data)
-    correlation_df.reset_index(inplace=True)
+    for ticker in tickers:
+        try:
+            data = yf.download(ticker, start=start, end=end)
+            if data.empty:
+                raise HTTPException(status_code=404, detail=f"Stock ticker {ticker} not found or no data available")
+            stock_data[ticker] = data['Close']  # Changed from 'Adj Close' to 'Close'
+            volume_data[ticker] = data['Volume']
+            try:
+                forecast_data[ticker] = prophet_forecast(data.reset_index(), ticker)
+            except ValueError as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error fetching data for {ticker}: {str(e)}")
 
-    combined_df = stock_df.merge(correlation_df, on='Date', how='outer')
-    combined_df.set_index('Date', inplace=True)
+    correlation_data = pd.DataFrame()
+    for ticker in correlation_tickers:
+        if ticker not in stock_data.columns:  # Only download if not already fetched
+            try:
+                data = yf.download(ticker, start=start, end=end)
+                if data.empty:
+                    raise HTTPException(status_code=404, detail=f"Stock ticker {ticker} not found or no data available")
+                correlation_data[ticker] = data['Close']  # Changed from 'Adj Close' to 'Close'
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Error fetching data for {ticker}: {str(e)}")
+
+    stock_df = stock_data.reset_index()
+    volume_df = volume_data.reset_index()
+    
+    # Combine stock data with correlation data
+    if not correlation_data.empty:
+        correlation_df = correlation_data.reset_index()
+        combined_df = pd.concat([stock_df.set_index('Date'), correlation_df.set_index('Date')], axis=1)
+    else:
+        combined_df = stock_df.set_index('Date')
+    
     correlation_matrix = combined_df.corr()
 
     return {
@@ -53,10 +61,14 @@ def analyze_stocks(stock_tickers: str, correlation_tickers: str, start_date: str
         "correlation_matrix": correlation_matrix.to_dict()
     }
 
-def prophet_forecast(stock_data):
-    prophet_data = stock_data.reset_index().rename(columns={'Date': 'ds', 'Adj Close': 'y'})
+def prophet_forecast(stock_data, ticker):
+    prophet_data = pd.DataFrame()
+    prophet_data['ds'] = stock_data['Date']
+    prophet_data['y'] = stock_data['Close']  # Changed from 'Adj Close' to 'Close'
+    
     if 'ds' not in prophet_data or 'y' not in prophet_data:
         raise ValueError("Dataframe must have columns 'ds' and 'y' with the dates and values respectively.")
+    
     model = Prophet()
     model.fit(prophet_data)
     future = model.make_future_dataframe(periods=365)
